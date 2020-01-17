@@ -2,14 +2,13 @@ package operator
 
 import (
 	"context"
+	"time"
+
 	"k8s.io/client-go/kubernetes"
 
 	operatorconfigclient "github.com/openshift/cluster-kube-descheduler-operator/pkg/generated/clientset/versioned"
-	deschedulerv1beta1 "github.com/openshift/cluster-kube-descheduler-operator/pkg/apis/descheduler/v1beta1"
-	"github.com/openshift/cluster-kube-descheduler-operator/pkg/operator/configobservation"
-	"github.com/openshift/cluster-kube-descheduler-operator/pkg/operator/resourcesynccontroller"
+	operatorclientinformers "github.com/openshift/cluster-kube-descheduler-operator/pkg/generated/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
-	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -28,45 +27,21 @@ func RunOperator(ctx context.Context, cc *controllercmd.ControllerContext) error
 		"openshift-kube-descheduler-operator",
 	)
 
-	operatorConfigClient, err  := operatorconfigclient.NewForConfig(cc.KubeConfig)
+	operatorConfigClient, err := operatorconfigclient.NewForConfig(cc.KubeConfig)
 	if err != nil {
 		return err
 	}
-
-	operatorClient, dynamicInformers, err := genericoperatorclient.NewClusterScopedOperatorClient(cc.KubeConfig, deschedulerv1beta1.SchemeGroupVersion.WithResource("kubedeschedulers"))
-	if err != nil {
-		return err
-	}
-
-	resourceSyncController, err := resourcesynccontroller.NewResourceSyncController(
-		operatorClient,
-		kubeInformersForNamespaces,
-		kubeClient,
-		cc.EventRecorder,
-	)
-	if err != nil {
-		return err
-	}
-
-	configObserver := configobservation.NewConfigObserver(
-		operatorClient,
-		kubeInformersForNamespaces,
-		resourceSyncController,
-		cc.EventRecorder,
-	)
+	operatorConfigInformers := operatorclientinformers.NewSharedInformerFactory(operatorConfigClient, 10*time.Minute)
 
 	targetConfigReconciler := NewTargetConfigReconciler(
 		operatorConfigClient.KubedeschedulersV1beta1(),
+		operatorConfigInformers.Kubedeschedulers().V1beta1().KubeDeschedulers(),
 		kubeClient,
 		cc.EventRecorder,
 	)
 
 	kubeInformersForNamespaces.Start(ctx.Done())
-	dynamicInformers.Start(ctx.Done())
-
-	go resourceSyncController.Run(ctx, 1)
 	go targetConfigReconciler.Run(1, ctx.Done())
-	go configObserver.Run(ctx, 1)
 
 	return nil
 }

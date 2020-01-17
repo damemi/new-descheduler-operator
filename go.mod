@@ -12,7 +12,8 @@ require (
 	github.com/prometheus/client_golang v1.1.0
 	github.com/spf13/cobra v0.0.5
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
+	k8s.io/api v0.17.0
 	k8s.io/apimachinery v0.17.1
 	k8s.io/client-go v0.17.0
-	k8s.io/code-generator v0.17.1 // indirect
+	k8s.io/klog v1.0.0
 )
